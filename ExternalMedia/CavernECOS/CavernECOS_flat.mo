@@ -29,9 +29,11 @@ model CavernECOS_flat
   parameter SpecificEnergy LHV_hydrogen = 120*10^6 "Lower heating value of hydrogen";
   parameter Real molar_mass_H2 = 0.002016 "Molar Mass needed for mass initialisation";
   parameter Volume V_cavern = 500000 "Volume of cavern";
-  parameter Area A_eff = 249000 "Effective surface area of cavern";
+  parameter Real shape_factor = 10 "shape factor to account for surface inhomogenities";
   parameter Pressure p_max_op = from_bar(185) "Chosen maximum operating pressure level";
   parameter Pressure p_min_op = from_bar(60) "Chosen minimum operating pressure level";
+  parameter Mass m_total_des = 6315266.81 "design H2 mass contained in cavern at P_max";
+  parameter Mass m_cushion_des = 2195040.11"design H2 cusion mass of cavern, discharge to P_min";  
   // Initial values
   parameter Pressure p_cavern_initial = from_bar(160) "Initial cavern pressure";
   parameter Temperature T_cavern_initial = 320.63 "initial cavern temperature";
@@ -58,6 +60,8 @@ model CavernECOS_flat
   parameter Density rho_start = m_H2_start/V_cavern "start value for density of hydrogen gas in cavern";
   
   //####################  Variables ######################
+  Area A_eff "Effective surface area of cavern";
+  Real SOE "State-of-Energy";
   Density rho(start = rho_start);
   Pressure p_cavern(start = p_cavern_initial) "Pressure inside of the cavern";
   Energy E_cavern(displayUnit = "GWh") "Energy inside of the cavern in the form of hydrogen";
@@ -77,6 +81,9 @@ initial equation
   m_H2_cavern = m_H2_initial;
 //####################  Equation ######################
 equation
+//general
+  A_eff = V_cavern/shape_factor;
+  SOE = (m_H2_cavern-m_cushion_des)/(m_total_des-m_cushion_des);
 //cavern states
   HydrogenStateInput = H2CoolProp.setState_pT(p_cavern, T_in);
   HydrogenState = H2CoolProp.setState_dT(rho, T_H2_cavern);
