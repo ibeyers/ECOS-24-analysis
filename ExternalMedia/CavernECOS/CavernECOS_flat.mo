@@ -34,48 +34,45 @@ model CavernECOS_flat
   parameter Pressure p_min_op = from_bar(60) "Chosen minimum operating pressure level";
   // Initial values
   parameter Pressure p_cavern_initial = from_bar(160) "Initial cavern pressure";
-  parameter Temperature T_cavern_initial = 310 "initial cavern temperature";
-  parameter Temperature T_cavern_infinite = 310 "infinite temperature of surrounding salt-rock";
-  parameter Diameter d_cavern = 228.3647 "cavern diameter";
+  parameter Temperature T_cavern_initial = 320.63 "initial cavern temperature";
+  parameter Temperature T_cavern_infinite = 320.63 "infinite temperature of surrounding salt-rock";
+  parameter Diameter d_cavern = 46.06588659617807 "cavern diameter";
   parameter Radius r_cavern = d_cavern/2 "cavern radius";
   // heat transfer to surrounding salt rock
   parameter Integer n_steps_saltrock = 71 "Number of increments for the discretization of the cavern wall";
   parameter Length delta_r_saltrock = 0.1 "Radial length of each increment";
   //parameter Temperature T_salt_init[n_steps_saltrock] = ones(n_steps_saltrock)* T_cavern_infinite;
-  parameter Temperature T_salt_init[n_steps_saltrock] = {310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310, 310};
-  parameter Temperature T_wall_init = 310 "initial wall temperature";
+  parameter Temperature T_salt_init[n_steps_saltrock] = {320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63};
+  parameter Temperature T_wall_init = 320.63 "initial wall temperature";
   parameter ThermalDiffusivity k_saltrock_diff = 3*10^(0 - 6) "thermal diffusivity of salt rock";
   parameter ThermalConductivity k_saltrock_cond = 6 "Thermal Conductivity of salt rock";
+  
   //####################  Interfaces/Inputs ######################
   input MassFlowRate m_dot_H2_in(start = 0) "Mass flow rate of hydrogen injected into the cavern";
   input MassFlowRate m_dot_H2_out(start = 1.5) "Mass flow rate of hydrogen withdrawn rom the cavern";
-  //parameter MassFlowRate m_dot_H2_in=0 "Mass flow rate of hydrogen injected into the cavern";
-  //parameter MassFlowRate m_dot_H2_out=1.5 "Mass flow rate of hydrogen withdrawn rom the cavern";
   parameter Temperature T_in = from_degC(40) "Temperature of the hydrogen gas that is injected into the cavern";
+  
   //####################  Initial value problem ######################
   parameter Mass m_H2_start = p_cavern_initial*V_cavern*molar_mass_H2/(R*T_cavern_initial) "start value for hydrogen mass in cavern";
   Mass m_H2_initial "Initial hydrogen mass in cavern";
   parameter Density rho_start = m_H2_start/V_cavern "start value for density of hydrogen gas in cavern";
+  
   //####################  Variables ######################
   Density rho(start = rho_start);
   Pressure p_cavern(start = p_cavern_initial) "Pressure inside of the cavern";
-  //Pressure p_cavern_in "Pressure of gas coming inside of the cavern";
   Energy E_cavern(displayUnit = "GWh") "Energy inside of the cavern in the form of hydrogen";
   Mass m_H2_cavern(start = m_H2_start) "Mass of hydrogen gas inside of the cavern";
-  //Temperature T_H2_cavern(start=T_cavern_initial) "Temperature of the hydrogen inside of the cavern";
   Temperature T_H2_cavern "Temperature of the hydrogen inside of the cavern";
   HeatFlowRate Q_dot_rock(displayUnit = "MW") "Heat flux exchanged with the surrooundig salt rock";
-  H2CoolProp.ThermodynamicState HydrogenState;
-  H2CoolProp.ThermodynamicState HydrogenStateInput;
-  H2CoolProp.ThermodynamicState HydrogenStateStart;
+  H2CoolProp.ThermodynamicState HydrogenState "Thermodynamic state of H2 in cavern";
+  H2CoolProp.ThermodynamicState HydrogenStateInput "Thermodynamic state of H2 coming into cavern";
+  H2CoolProp.ThermodynamicState HydrogenStateStart "Initial thermodynamic state of H2 in cavern";
   //heat transfer to surrounding saltrock
   Temperature T_salt[n_steps_saltrock](start = T_salt_init) "salt dome temperatures";
   Temperature T_wall(start = T_wall_init) "Uniform temperature of the cavern wall";
   Real Bi = U*delta_r_saltrock/k_saltrock_cond "Biot number";
   CoefficientOfHeatTransfer U "Overall heat transfer coefficient between the hydrogen gas and the cavern wall";
 initial equation
-//T_salt =  T_salt_init;
-//T_wall = T_wall_init;
   T_H2_cavern = T_cavern_initial;
   m_H2_cavern = m_H2_initial;
 //####################  Equation ######################
@@ -104,6 +101,7 @@ equation
 //mass balance
   der(rho)*V_cavern = m_dot_H2_in - m_dot_H2_out;
   m_H2_cavern = rho*V_cavern;
+  
 //####################  Component Management ######################
 //    if p_cavern > p_max_op then
 //  terminate("Error Cavern: p_cavern > p_cavern_max!");
