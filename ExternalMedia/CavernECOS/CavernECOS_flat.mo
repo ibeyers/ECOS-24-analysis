@@ -69,8 +69,8 @@ model CavernECOS_flat
   parameter ThermalConductivity k_saltrock_cond = 6 "Thermal Conductivity of salt rock";
   
   //####################  Interfaces/Inputs ######################
-  input MassFlowRate m_dot_H2_in(start = 0) "Mass flow rate of hydrogen injected into the cavern";
-  input MassFlowRate m_dot_H2_out(start = 1.5) "Mass flow rate of hydrogen withdrawn rom the cavern";
+  input MassFlowRate m_dot_H2_injection(start = 1) "Mass flow rate of hydrogen injected into the cavern";
+  input MassFlowRate m_dot_H2_withdrawal(start = 0) "Mass flow rate of hydrogen withdrawn rom the cavern";
   parameter Temperature T_in = from_degC(40) "Temperature of the hydrogen gas that is injected into the cavern";
   
   //####################  Initial value problem ######################
@@ -96,8 +96,8 @@ model CavernECOS_flat
   Area A_well=((d_well^2)/4)*pi;
   Velocity v_well_bot;
   Velocity v_well_top;  
-  MassFlowRate m_dot_well_bot;
-  MassFlowRate m_dot_well_top;  
+  //MassFlowRate m_dot_well_bot;
+  //MassFlowRate m_dot_well_top;  
   ReynoldsNumber Re_well "Reynolds Number of the moving fluid";
   Real lambda_well "friction coefficient"; 
   Real epsilon "relative roughness";
@@ -125,13 +125,13 @@ equation
   SOE = (m_H2_cavern-m_cushion_des)/(m_total_des-m_cushion_des);
   //well
 //mass balance, no storage of mass in pipe!
-   0=m_dot_well_bot+m_dot_well_top; 
+   //0=m_dot_well_bot+m_dot_well_top; 
    
   rho_well_top=H2_well_top.d;
 
-  m_dot_well_top=m_dot_H2_in-m_dot_H2_out;  
-  v_well_bot=m_dot_well_bot/(rho*A_well);
-  v_well_top=m_dot_well_top/(rho_well_top*A_well);
+  //m_dot_well_top=m_dot_H2_injection-m_dot_H2_withdrawal;  
+  v_well_bot=(-m_dot_H2_injection+m_dot_H2_withdrawal)/(rho*A_well);
+  v_well_top=(m_dot_H2_injection-m_dot_H2_withdrawal)/(rho_well_top*A_well);
 
   H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
   
@@ -150,17 +150,17 @@ equation
   lambda_well=0.25/((log10(epsilon / 3.7  + 5.74 / (Re_well ^ 0.9))) ^ (2)); //approximation by Swamee and Jain 1976
   end if;
   // Energy balance (static conduit, no storage of energy)
-0 = m_dot_well_bot*HydrogenState.h + m_dot_well_top*h_well_top +m_dot_well_bot/rho*(p_cavern - p_well_top) ;
+0 = (m_dot_H2_injection-m_dot_H2_withdrawal)*HydrogenState.h - (m_dot_H2_injection-m_dot_H2_withdrawal)*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top) ;
 
 //cavern states
-  HydrogenStateInput = Medium.setState_pT(p_cavern, T_in);
+  HydrogenStateInput = Medium.setState_pT(p_well_top, T_in);
   HydrogenState = Medium.setState_dT(rho, T_H2_cavern);
   HydrogenStateStart = Medium.setState_pT(p_cavern_initial, T_cavern_initial);
   m_H2_initial = HydrogenStateStart.d*V_cavern;
   p_cavern = HydrogenState.p;
   E_cavern = m_H2_cavern*LHV_hydrogen;
 //energy balance in cavern (including cushion gas)
-   m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_in*HydrogenStateInput.h - m_dot_H2_out*HydrogenState.h;
+   m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*HydrogenStateInput.h - m_dot_H2_withdrawal*HydrogenState.h;
   u=(HydrogenState.h - p_cavern*1/HydrogenState.d);  
 //heat transfer cavern-surrounding saltrock
   Q_dot_rock = U*A_eff*(T_wall - T_H2_cavern);
@@ -173,7 +173,7 @@ equation
 // calculation of wall temperature
   T_wall = (T_salt[2] + T_salt[1])/2;
 //mass balance
-  der(rho)*V_cavern = m_dot_H2_in - m_dot_H2_out;
+  der(rho)*V_cavern = m_dot_H2_injection - m_dot_H2_withdrawal;
   m_H2_cavern = rho*V_cavern;
   
 //####################  Component Management ######################
