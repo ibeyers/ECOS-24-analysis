@@ -69,8 +69,10 @@ model CavernECOS_flat
   parameter ThermalConductivity k_saltrock_cond = 6 "Thermal Conductivity of salt rock";
   
   //####################  Interfaces/Inputs ######################
-  input MassFlowRate m_dot_H2_injection(start = 1) "Mass flow rate of hydrogen injected into the cavern";
-  input MassFlowRate m_dot_H2_withdrawal(start = 0) "Mass flow rate of hydrogen withdrawn rom the cavern";
+  input MassFlowRate m_dot_H2_injection(start = 0) "Mass flow rate of hydrogen injected into the cavern";
+  input MassFlowRate m_dot_H2_withdrawal(start =2.5) "Mass flow rate of hydrogen withdrawn rom the cavern";
+
+  
   parameter Temperature T_in = from_degC(40) "Temperature of the hydrogen gas that is injected into the cavern";
   
   //####################  Initial value problem ######################
@@ -95,21 +97,18 @@ model CavernECOS_flat
   Volume V_well=A_well*L_well;
   Area A_well=((d_well^2)/4)*pi;
   Velocity v_well_bot;
-  Velocity v_well_top;  
-  //MassFlowRate m_dot_well_bot;
-  //MassFlowRate m_dot_well_top;  
+  Velocity v_well_top;
+  Velocity v_well_ave=(v_well_top+v_well_bot)/2;  
   ReynoldsNumber Re_well "Reynolds Number of the moving fluid";
   Real lambda_well "friction coefficient"; 
   Real epsilon "relative roughness";
   DynamicViscosity eta  "Dynamic viscosity of H2"; 
   Pressure p_well_top;
-  Density rho_well_top;
-  SpecificEnthalpy h_well_top;
-  
-  //Temperature T_well_top=T_H2_cavern;
-  //T_well_top
-  Medium.ThermodynamicState H2_well_top "Thermodynamic state of H2 at plateau";  
-
+  Density rho_well;
+SpecificEnthalpy h_well;
+  //SpecificEnthalpy h_well_bot;
+Medium.ThermodynamicState H2_well "Unknown Thermodynamic state of H2 in well";  
+Medium.ThermodynamicState H2_well_top "Thermodynamic state of H2 at plateau";
   //heat transfer to surrounding saltrock
   Temperature T_salt[n_steps_saltrock](start = T_salt_init) "salt dome temperatures";
   Temperature T_wall(start = T_wall_init) "Uniform temperature of the cavern wall";
@@ -125,42 +124,88 @@ equation
   SOE = (m_H2_cavern-m_cushion_des)/(m_total_des-m_cushion_des);
   //well
 //mass balance, no storage of mass in pipe!
-   //0=m_dot_well_bot+m_dot_well_top; 
-   
-  rho_well_top=H2_well_top.d;
-
-  //m_dot_well_top=m_dot_H2_injection-m_dot_H2_withdrawal;  
-  v_well_bot=(-m_dot_H2_injection+m_dot_H2_withdrawal)/(rho*A_well);
-  v_well_top=(m_dot_H2_injection-m_dot_H2_withdrawal)/(rho_well_top*A_well);
-
-  H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
-  
-  //momentum balance
-  0=A_well*(p_cavern - p_well_top) - A_well*d_well*g_n*(L_well)- rho*v_well_bot*abs(v_well_bot)/(2*d_well)*lambda_well*L_well;
-  // calculate the Reynolds Number
-  Re_well = abs(v_well_bot)*d_well*rho/eta;   
+//0=m_dot_well_bot+m_dot_well_top;
+//momentum balance
+  0=A_well*(p_cavern - p_well_top) - A_well*d_well*g_n*(L_well) + rho*v_well_bot*abs(v_well_bot)/(2*d_well)*lambda_well*L_well;
+Re_well = abs(v_well_bot)*d_well*rho_well/eta;
   epsilon = k/(d_well*1000);
   eta=HydrogenState.eta;
 // calculate lambda
-  if Re_well <= 0 then
+  if Re_well == 0 then
     lambda_well= 0;
   elseif Re_well <= Re_crit then
     lambda_well= 64 / Re_well;
   else 
   lambda_well=0.25/((log10(epsilon / 3.7  + 5.74 / (Re_well ^ 0.9))) ^ (2)); //approximation by Swamee and Jain 1976
   end if;
-  // Energy balance (static conduit, no storage of energy)
-0 = (m_dot_H2_injection-m_dot_H2_withdrawal)*HydrogenState.h - (m_dot_H2_injection-m_dot_H2_withdrawal)*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top) ;
+  
+  
+  
+  rho_well=HydrogenState.d;
+ v_well_bot=(m_dot_H2_injection-m_dot_H2_withdrawal)/(rho_well*A_well);
+ 
+ v_well_top=(m_dot_H2_injection-m_dot_H2_withdrawal)/(H2_well_top.d*A_well);
+
+//dis works in charge mode
+
+//if m_dot_H2_injection> 0 then
+//if Mode ==0 then
+// Energy balance (static conduit, no storage of energy)
+  0 = m_dot_H2_injection*HydrogenStateInput.h - m_dot_H2_injection*h_well +m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
+  H2_well= Medium.setState_ph(p_cavern,h_well); //H2_well_two= Medium.setState_ph(p_well_top,h_well);
+H2_well_top= Medium.setState_ph(p_well_top,h_well);
+  HydrogenStateInput = Medium.setState_pT(p_well_top,T_in); 
+
+//else
+
+/*
+   // Energy balance (static conduit, no storage of energy)
+  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
+  H2_well= Medium.setState_ph(p_cavern,h_well); 
+ //H2_well_two= Medium.setState_ph(p_well_top,h_well);  
+   HydrogenStateInput = Medium.setState_pT(p_well_top,T_in);  
+   m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock - m_dot_H2_withdrawal*HydrogenState.h;
+*/
+//end if;
+/*
+  elseif m_dot_H2_withdrawal>0 then
+    // Energy balance (static conduit, no storage of energy)
+  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
+  H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
+  H2_well_bot= Medium.setState_pT(101325,300);
+   HydrogenStateInput = Medium.setState_pT(101325,T_in);  
+
+
+  else
+  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
+  H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
+  H2_well_bot= Medium.setState_pT(101325,300);  
+  HydrogenStateInput =  Medium.setState_pT(101325,T_in); 
+
+
+  end if;
+
+*/
+
 
 //cavern states
-  HydrogenStateInput = Medium.setState_pT(p_well_top, T_in);
+
   HydrogenState = Medium.setState_dT(rho, T_H2_cavern);
   HydrogenStateStart = Medium.setState_pT(p_cavern_initial, T_cavern_initial);
   m_H2_initial = HydrogenStateStart.d*V_cavern;
   p_cavern = HydrogenState.p;
   E_cavern = m_H2_cavern*LHV_hydrogen;
 //energy balance in cavern (including cushion gas)
-   m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*HydrogenStateInput.h - m_dot_H2_withdrawal*HydrogenState.h;
+
+//SteffensVersion
+ //m_H2_cavern*HydrogenState.cv*der(T_H2_cavern) = Q_dot_rock + m_dot_H2_injection*H2_well.h - m_dot_H2_withdrawal*HydrogenState.h - u*der(m_H2_cavern);
+
+//modified
+m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*H2_well.h - m_dot_H2_withdrawal*HydrogenState.h;
+
+//old
+   //m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*H2_well_bot.h - m_dot_H2_withdrawal*HydrogenState.h;
+    //  m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock - m_dot_H2_withdrawal*HydrogenState.h;
   u=(HydrogenState.h - p_cavern*1/HydrogenState.d);  
 //heat transfer cavern-surrounding saltrock
   Q_dot_rock = U*A_eff*(T_wall - T_H2_cavern);
@@ -183,4 +228,5 @@ equation
 // if p_cavern < p_min_op then
 //  terminate("Error Cavern: p_cavern < p_cavern_min!");
 //  end if;
+
 end CavernECOS_flat;
