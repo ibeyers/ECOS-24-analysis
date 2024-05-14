@@ -51,18 +51,10 @@ model CavernECOS_flat
   parameter Diameter d_cavern = 46.06588659617807 "cavern diameter";
   parameter Radius r_cavern = d_cavern/2 "cavern radius";
   // heat transfer to surrounding salt rock
-  //parameter Integer n_steps_saltrock = 71 "Number of increments for the discretization of the cavern wall";
   parameter Integer n_steps_saltrock = 34 "Number of increments for the discretization of the cavern wall";
-  //parameter Integer n_steps_saltrock = 21 "Number of increments for the discretization of the cavern wall";
-  //parameter Length delta_r_saltrock = 0.35 "Radial length of each increment";
   parameter Length delta_r_saltrock = 0.3 "Radial length of each increment";  
-  //parameter Length delta_r_saltrock = 0.1 "Radial length of each increment";
-  //parameter Temperature T_salt_init[n_steps_saltrock] = ones(n_steps_saltrock)* T_cavern_infinite;
-  /*parameter Temperature T_salt_init[n_steps_saltrock] = {320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63};*/
-  
   parameter Temperature T_salt_init[n_steps_saltrock] = {320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63};
   
-  /*parameter Temperature T_salt_init[n_steps_saltrock] = {320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63, 320.63};  */
   
   parameter Temperature T_wall_init = 320.63 "initial wall temperature";
   parameter ThermalDiffusivity k_saltrock_diff = 3*10^(0 - 6) "thermal diffusivity of salt rock";
@@ -123,13 +115,12 @@ equation
   A_eff = V_cavern/shape_factor;
   SOE = (m_H2_cavern-m_cushion_des)/(m_total_des-m_cushion_des);
   //well
-//mass balance, no storage of mass in pipe!
-//0=m_dot_well_bot+m_dot_well_top;
 //momentum balance
   0=A_well*(p_cavern - p_well_top) - A_well*d_well*g_n*(L_well) + rho*v_well_bot*abs(v_well_bot)/(2*d_well)*lambda_well*L_well;
 Re_well = abs(v_well_bot)*d_well*rho_well/eta;
   epsilon = k/(d_well*1000);
   eta=HydrogenState.eta;
+  
 // calculate lambda
   if Re_well == 0 then
     lambda_well= 0;
@@ -138,55 +129,16 @@ Re_well = abs(v_well_bot)*d_well*rho_well/eta;
   else 
   lambda_well=0.25/((log10(epsilon / 3.7  + 5.74 / (Re_well ^ 0.9))) ^ (2)); //approximation by Swamee and Jain 1976
   end if;
-  
-  
-  
   rho_well=HydrogenState.d;
  v_well_bot=(m_dot_H2_injection-m_dot_H2_withdrawal)/(rho_well*A_well);
  
  v_well_top=(m_dot_H2_injection-m_dot_H2_withdrawal)/(H2_well_top.d*A_well);
 
-//dis works in charge mode
-
-//if m_dot_H2_injection> 0 then
-//if Mode ==0 then
 // Energy balance (static conduit, no storage of energy)
   0 = m_dot_H2_injection*HydrogenStateInput.h - m_dot_H2_injection*h_well +m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
   H2_well= Medium.setState_ph(p_cavern,h_well); //H2_well_two= Medium.setState_ph(p_well_top,h_well);
 H2_well_top= Medium.setState_ph(p_well_top,h_well);
   HydrogenStateInput = Medium.setState_pT(p_well_top,T_in); 
-
-//else
-
-/*
-   // Energy balance (static conduit, no storage of energy)
-  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
-  H2_well= Medium.setState_ph(p_cavern,h_well); 
- //H2_well_two= Medium.setState_ph(p_well_top,h_well);  
-   HydrogenStateInput = Medium.setState_pT(p_well_top,T_in);  
-   m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock - m_dot_H2_withdrawal*HydrogenState.h;
-*/
-//end if;
-/*
-  elseif m_dot_H2_withdrawal>0 then
-    // Energy balance (static conduit, no storage of energy)
-  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
-  H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
-  H2_well_bot= Medium.setState_pT(101325,300);
-   HydrogenStateInput = Medium.setState_pT(101325,T_in);  
-
-
-  else
-  0 = m_dot_H2_withdrawal*HydrogenState.h -m_dot_H2_withdrawal*h_well_top +(m_dot_H2_injection-m_dot_H2_withdrawal)/rho*(p_cavern - p_well_top);
-  H2_well_top= Medium.setState_ph(p_well_top,h_well_top);
-  H2_well_bot= Medium.setState_pT(101325,300);  
-  HydrogenStateInput =  Medium.setState_pT(101325,T_in); 
-
-
-  end if;
-
-*/
-
 
 //cavern states
 
@@ -196,16 +148,9 @@ H2_well_top= Medium.setState_ph(p_well_top,h_well);
   p_cavern = HydrogenState.p;
   E_cavern = m_H2_cavern*LHV_hydrogen;
 //energy balance in cavern (including cushion gas)
-
-//SteffensVersion
- //m_H2_cavern*HydrogenState.cv*der(T_H2_cavern) = Q_dot_rock + m_dot_H2_injection*H2_well.h - m_dot_H2_withdrawal*HydrogenState.h - u*der(m_H2_cavern);
-
-//modified
 m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*H2_well.h - m_dot_H2_withdrawal*HydrogenState.h;
 
 //old
-   //m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock + m_dot_H2_injection*H2_well_bot.h - m_dot_H2_withdrawal*HydrogenState.h;
-    //  m_H2_cavern*der(u) + u*der(m_H2_cavern)= Q_dot_rock - m_dot_H2_withdrawal*HydrogenState.h;
   u=(HydrogenState.h - p_cavern*1/HydrogenState.d);  
 //heat transfer cavern-surrounding saltrock
   Q_dot_rock = U*A_eff*(T_wall - T_H2_cavern);
